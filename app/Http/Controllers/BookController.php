@@ -18,7 +18,6 @@ class BookController extends Controller
         $user_id = JWTAuth::parseToken()->authenticate()->id;
         $user = User::find($user_id);
         $categoryName = $request->query('category');
-
         // $book = Book::where('created_by', $user_id)->get(); // Ensure book belongs to the user
         // $book = Book::all();
 
