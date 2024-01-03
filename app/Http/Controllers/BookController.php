@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\BooksExport;
 use App\Models\Book;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use Carbon\Carbon;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use Maatwebsite\Excel\Facades\Excel;
 
 class BookController extends Controller
 {
     public function getBooks(Request $request)
     {
         $user_id = JWTAuth::parseToken()->authenticate()->id;
+        $categoryName = $request->query('category');
 
         // $book = Book::where('created_by', $user_id)->get(); // Ensure book belongs to the user
         // $book = Book::all();
@@ -23,8 +24,25 @@ class BookController extends Controller
         $limit = $request->query('limit', 5);
         $skip = ($page - 1) * $limit;
 
-        $books = Book::where('created_by', $user_id)->skip($skip)->take($limit)->get();
-        $total = Book::count();
+        if ($categoryName) {
+            $books = Book::join('categories', 'books.category', '=', 'categories.id')
+                ->where('books.created_by', $user_id)
+                ->where('categories.category', $categoryName)
+                ->skip($skip)
+                ->take($limit)
+                ->select('books.*')  // to avoid column name conflict
+                ->get();
+            $total = Book::join('categories', 'books.category', '=', 'categories.id')
+                ->where('categories.category', $categoryName)
+                ->count();
+        } else {
+            $books = Book::where('created_by', $user_id)
+                ->skip($skip)
+                ->take($limit)
+                ->get();
+            $total = Book::count();
+        }
+
 
         // Prepare pagination data for the view
         return Response::json([
@@ -116,18 +134,39 @@ class BookController extends Controller
                 }
             }
 
-            $published = $request->published ? Carbon::parse($request->published)->format('Y-m-d H:i:s') : null;
+            if ($request->hasFile('book_file')) {
+                $request->validate([
+                    'book_file' => 'mimes:pdf',
+                ]);
+                $book_file = $request->file('book_file')->store('books');
+            } else {
+                $book_file = Book::find($request->id)->first()->book_file;
+            }
+
+            if ($request->hasFile('cover_image')) {
+                $request->validate([
+                    'cover_image' => 'image|mimes:jpeg,png,jpg'
+                ]);
+                $cover_image = $request->file('cover_image')->store('cover_image');
+            } else {
+                $cover_image = Book::find($request->id)->first()->cover_image;
+            }
+
+            // $published = $request->published ? Carbon::createFromFormat('D M d Y H:i:s e+', $request->published)->format('Y-m-d H:i:s') : null;
             $book->update([
-                'id' => $request->id,
+                'id' => strval($request->id),
                 'title' => $request->title,
                 'subtitle' => $request->subtitle,
                 'author' => $request->author,
                 'description' => $request->description,
-                'published' => $published,
+                'published' => $request->published,
                 'publisher' => $request->publisher,
                 'website' => $request->website,
                 'created_by' => $request->created_by,
+                'category' => (int)$request->category,
                 'pages' => (int) $request->pages,
+                'book_file' => $book_file,
+                'cover_image' => $cover_image,
             ]);
 
             return response()->json([
@@ -155,7 +194,16 @@ class BookController extends Controller
                 ], 422);
             }
 
-            $published = $request->published ? Carbon::parse($request->published)->format('Y-m-d H:i:s') : null;
+            $request->validate([
+                'book_file' => 'mimes:pdf',
+                'cover_image' => 'image|mimes:jpeg,png,jpg'
+            ]);
+
+            $book_file = $request->file('book_file')->store('books');
+            $cover_image = $request->file('cover_image')->store('cover_image');
+
+            $published = $request->published ? Carbon::createFromFormat('D M d Y H:i:s e+', $request->published)->format('Y-m-d H:i:s') : null;
+
             $book_created = Book::create([
                 'id' => strval($request->id),
                 'title' => $request->title,
@@ -166,13 +214,52 @@ class BookController extends Controller
                 'publisher' => $request->publisher,
                 'website' => $request->website,
                 'created_by' => $request->created_by,
+                'category' => (int)$request->category,
                 'pages' => (int) $request->pages,
+                'book_file' => $book_file,
+                'cover_image' => $cover_image,
             ]);
 
             return response()->json([
                 'message' => 'Book created',
                 'book' => $book_created,
             ], 200);
+        } catch (\Exception $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function showPdf(Request $request, Book $book)
+    {
+        try {
+            JWTAuth::parseToken()->authenticate()->id;
+            return response()->download(storage_path("app/{$book->book_file}"));
+        } catch (\Exception $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function showCoverImage(Request $request, Book $book)
+    {
+        try {
+            JWTAuth::parseToken()->authenticate()->id;
+            return response()->download(storage_path("app/{$book->cover_image}"));
+        } catch (\Exception $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function exportExcel(Request $request)
+    {
+        try {
+            JWTAuth::parseToken()->authenticate()->id;
+            return Excel::download(new BooksExport, 'books.xlsx');
         } catch (\Exception $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),

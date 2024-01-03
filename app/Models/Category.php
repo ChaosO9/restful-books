@@ -9,9 +9,20 @@ class Category extends Model
 {
     use HasFactory;
     protected $table = 'categories';
+    public $timestamps = false;
+
 
     public function books()
     {
-        return $this->hasMany(Book::class);
+        return $this->hasMany(Book::class, 'category');
     }
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'category',
+    ];
 }

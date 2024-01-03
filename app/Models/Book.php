@@ -26,7 +26,10 @@ class Book extends Model
         'pages',
         'description',
         'website',
-        'created_by'
+        'created_by',
+        'book_file',
+        'category',
+        'cover_image'
     ];
 
     public function category()
