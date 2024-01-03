@@ -71,7 +71,7 @@ class CategoryController extends Controller
             }
 
             $category->update([
-                'name' => $request->category_name,
+                'category' => $request->category_name,
             ]);
 
             return response()->json([
@@ -99,7 +99,7 @@ class CategoryController extends Controller
             }
 
             $category_created = Category::create([
-                'name' => $request->category_name,
+                'category' => $request->category_name,
             ]);
 
             return response()->json([
@@ -107,6 +107,35 @@ class CategoryController extends Controller
                 'category' => $category_created,
             ], 200);
         } catch (\Exception $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getCategoryDetail(Request $request, $category_id)
+    {
+        try {
+            $category = Category::where('id', $category_id)->firstOrFail();
+
+            return response()->json([
+                'message' => 'Category found',
+                'category' => $category,
+            ], 200);
+        } catch (\Exception $exception) {
+            if ($exception instanceof \Tymon\JWTAuth\Exceptions\TokenInvalidException) {
+                return response()->json([
+                    'message' => 'Invalid token',
+                ], 401);
+            }
+
+            if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                return response()->json([
+                    'message' => 'The book does not exist',
+                    'errors' => ['isbn' => ['The book does not exist']],
+                ], 404);
+            }
+
             return response()->json([
                 'message' => $exception->getMessage(),
             ], 500);

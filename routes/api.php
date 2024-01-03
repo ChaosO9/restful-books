@@ -28,6 +28,11 @@ use App\Http\Controllers\UserController;
 Route::post('/login', [Login::class, 'userLogin']);
 Route::post('/register', [Register::class, 'userRegister']);
 Route::get('/user', [UserController::class, 'getUserDetail']);
+Route::get('/books/{book}/pdf', [BookController::class, 'showPdf']);
+Route::get('/books/{book}/cover_image', [BookController::class, 'showCoverImage']);
+Route::get('/books/excel', [BookController::class, 'exportExcel']);
+
+
 
 Route::middleware('api')->group(function () {
     Route::get('/books', [BookController::class, 'getBooks']);
@@ -38,4 +43,8 @@ Route::middleware('api')->group(function () {
     Route::post('/verifyjwt', [Login::class, 'verifyJWT']);
 
     Route::get('/categories', [CategoryController::class, 'getCategories']);
+    Route::get('/categories/{category_id}', [CategoryController::class, 'getCategoryDetail']);
+    Route::delete('/categories/{category_id}', [CategoryController::class, 'deleteCategory']);
+    Route::post('/categories/{category_id}/edit', [CategoryController::class, 'updateCategory']);
+    Route::post('/categories/add', [CategoryController::class, 'createCategory']);
 });
